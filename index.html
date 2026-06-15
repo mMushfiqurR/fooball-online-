@@ -241,10 +241,13 @@
         }
 
         function initNetwork() {
-            // Check if user is arriving from a shared direct game link
+            if (typeof Peer === "undefined") {
+                setStatus("Error: PeerJS library failed to download. Check your ad-blocker or link setup.", true);
+                return;
+            }
+
             const urlParams = new URLSearchParams(window.location.search);
             const targetRoomCode = urlParams.get('room');
-
             const randomId = Math.floor(1000 + Math.random() * 9000).toString();
             
             peer = new Peer('strk-' + randomId, {
@@ -270,19 +273,15 @@
                 setStatus("Network Engine Connected.");
                 
                 if (targetRoomCode) {
-                    // AUTOMATIC GUEST ROUTE: Friend opened a link, auto-connect them right away
                     setStatus("Joining match via invite link...");
                     document.getElementById("setup-controls").style.display = "none";
-                    
                     conn = peer.connect('strk-' + targetRoomCode);
                     isHost = false;
                     bindNetworkEvents();
                 } else {
-                    // NORMAL HOST ROUTE
                     document.getElementById("host-btn").style.display = "block";
                     document.getElementById("host-btn").innerText = `HOST MATCH (CODE: ${randomId})`;
                     
-                    // Pre-generate the 1-click link to bypass any manual inputs
                     const baseUri = window.location.href.split('?')[0];
                     shareableLink = `${baseUri}?room=${randomId}`;
                 }
@@ -296,8 +295,8 @@
             });
 
             peer.on('error', (err) => {
-                setStatus(`Network error: ${err.type}. Restarting...`, true);
-                setTimeout(() => window.location.reload(), 2500);
+                setStatus(`Network error: ${err.type}. Check your connection setup.`, true);
+                console.error(err);
             });
         }
 
@@ -559,15 +558,14 @@
             ctx.restore();
         }
 
-       function drawEntity(obj, outlineColor = "#ffffff") {
-    ctx.beginPath(); 
-    ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
-    ctx.fillStyle = obj.color; 
-    ctx.fill();
-    ctx.strokeStyle = outlineColor; 
-    ctx.lineWidth = 3; 
-    ctx.stroke(); // FIXED: Added 'ctx.' back so the canvas knows to execute the line drawing
-}
+        function drawEntity(obj, outlineColor = "#ffffff") {
+            ctx.beginPath(); 
+            ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+            ctx.fillStyle = obj.color; 
+            ctx.fill();
+            ctx.strokeStyle = outlineColor; 
+            ctx.lineWidth = 3; 
+            ctx.stroke();
         }
 
         function loop() {
