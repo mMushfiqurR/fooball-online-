@@ -559,10 +559,15 @@
             ctx.restore();
         }
 
-        function drawEntity(obj, outlineColor = "#ffffff") {
-            ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
-            ctx.fillStyle = obj.color; ctx.fill();
-            ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; stroke();
+       function drawEntity(obj, outlineColor = "#ffffff") {
+    ctx.beginPath(); 
+    ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+    ctx.fillStyle = obj.color; 
+    ctx.fill();
+    ctx.strokeStyle = outlineColor; 
+    ctx.lineWidth = 3; 
+    ctx.stroke(); // FIXED: Added 'ctx.' back so the canvas knows to execute the line drawing
+}
         }
 
         function loop() {
