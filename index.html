@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Arena Strikers: PC Online Championship</title>
+    <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #101012;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        #lobby-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background: #16161a;
+            padding: 35px;
+            border-radius: 12px;
+            border: 1px solid #25252b;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .menu-btn {
+            background: #3498db;
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 220px;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .menu-btn:hover { background: #2980b9; transform: translateY(-1px); }
+        #join-btn { background: #2ecc71; }
+        #join-btn:hover { background: #27ae60; }
+        #copy-btn { background: #e67e22; display: none; margin-top: 5px; }
+        #copy-btn:hover { background: #d35400; }
+
+        input {
+            background: #202024;
+            border: 1px solid #3a3a42;
+            color: white;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            text-align: center;
+            width: 200px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        #game-wrapper {
+            display: none; 
+            align-items: center;
+            gap: 30px;
+            background: #16161a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            border: 1px solid #25252b;
+            position: relative;
+        }
+
+        #sidebar {
+            width: 180px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-box {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #25252b;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .score-title {
+            font-size: 11px;
+            color: #777;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+
+        .score-value {
+            font-size: 40px;
+            font-weight: 900;
+        }
+        
+        #p-score { color: #00bfff; } 
+        #a-score { color: #ff4500; } 
+        
+        #timer-value { color: #f1c40f; font-size: 32px; font-weight: 800; font-family: monospace; }
+        #role-value { font-weight: 900; font-size: 16px; }
+
+        #canvas-container {
+            position: relative;
+        }
+
+        canvas {
+            border: 3px solid #3a3a42;
+            border-radius: 6px;
+            background-color: #145a2d;
+            cursor: none; 
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 12, 0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            z-index: 10;
+        }
+
+        #result-status {
+            font-size: 36px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        #final-stats {
+            font-size: 20px;
+            color: #aaa;
+            font-family: monospace;
+        }
+
+        #instructions {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="lobby-container">
+        <h2 style="margin-top: 0; letter-spacing: 1px;">ARENA STRIKERS: ONLINE</h2>
+        <div id="lobby-status" style="color: #f1c40f; font-weight: bold; margin-bottom: 15px;">Initializing connection network...</div>
+        
+        <div id="setup-controls">
+            <button id="host-btn" class="menu-btn" style="display:none;">HOST MATCH</button>
+            <button id="copy-btn" class="menu-btn">COPY INVITE LINK</button>
+            <div id="or-divider" style="margin: 5px 0; color: #444; font-weight: bold;">OR</div>
+            <input type="text" id="room-input" placeholder="ROOM CODE" maxlength="4">
+            <button id="join-btn" class="menu-btn">JOIN MATCH</button>
+        </div>
+    </div>
+
+    <div id="game-wrapper">
+        <div id="sidebar">
+            <div class="panel-box">
+                <div class="score-title">YOUR TEAM</div>
+                <div id="role-value">-</div>
+            </div>
+
+            <div class="panel-box">
+                <div class="score-title">TIME REMAINING</div>
+                <div id="timer-value">02:00</div>
+            </div>
+
+            <div class="panel-box">
+                <div class="score-title">RED SCORE (GUEST)</div>
+                <div id="p-score" class="score-value">0</div>
+            </div>
+
+            <div class="panel-box">
+                <div class="score-title">BLUE SCORE (HOST)</div>
+                <div id="a-score" class="score-value">0</div>
+            </div>
+
+            <div id="instructions">
+                <strong>PC Controls:</strong><br>
+                • Move <b>Mouse</b> to guide your paddle.<br>
+                • <b>Left-Click</b> to trigger your high-speed <b>Dash Kick</b>!
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="arena" width="460" height="680"></canvas>
+            
+            <div id="game-over-screen">
+                <div id="result-status">MATCH CONCLUDED</div>
+                <div id="final-stats">BLUE 0 - 0 RED</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("arena");
+        const ctx = canvas.getContext("2d");
+
+        let peer = null;
+        let conn = null;
+        let isHost = false; 
+        let gameActive = false;
+        let shareableLink = "";
+
+        let scores = { player2: 0, player1: 0 }; 
+        let totalTime = 120; 
+        let timerInterval = null;
+
+        const padY = 60; 
+        const goalWidth = 140;
+        const goalHeight = 25; 
+        const goalX = (canvas.width - goalWidth) / 2;
+        let goalFlash = 0;
+
+        const ball = { x: 230, y: 340, vx: 0, vy: 0, radius: 11, mass: 1, color: "#ffffff" };
+        const p1 = { x: 230, y: 500, targetX: 230, targetY: 500, vx: 0, vy: 0, radius: 21, mass: 4, color: "#00bfff", isDashing: false, dashTimer: 0 }; 
+        const p2 = { x: 230, y: 180, targetX: 230, targetY: 180, vx: 0, vy: 0, radius: 21, mass: 4, color: "#ff4500", isDashing: false, dashTimer: 0 }; 
+
+        const friction = 0.982;
+        const dashCooldownMax = 45; 
+        let myCooldown = 0;
+
+        function setStatus(text, isError = false) {
+            const statusEl = document.getElementById("lobby-status");
+            statusEl.innerText = text;
+            statusEl.style.color = isError ? "#ff4757" : "#f1c40f";
+        }
+
+        function initNetwork() {
+            // Check if user is arriving from a shared direct game link
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetRoomCode = urlParams.get('room');
+
+            const randomId = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            peer = new Peer('strk-' + randomId, {
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:80', 
+                            username: 'openrelayproject', 
+                            credential: 'openrelayproject' 
+                        },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:443', 
+                            username: 'openrelayproject', 
+                            credential: 'openrelayproject' 
+                        }
+                    ]
+                }
+            });
+
+            peer.on('open', (id) => {
+                setStatus("Network Engine Connected.");
+                
+                if (targetRoomCode) {
+                    // AUTOMATIC GUEST ROUTE: Friend opened a link, auto-connect them right away
+                    setStatus("Joining match via invite link...");
+                    document.getElementById("setup-controls").style.display = "none";
+                    
+                    conn = peer.connect('strk-' + targetRoomCode);
+                    isHost = false;
+                    bindNetworkEvents();
+                } else {
+                    // NORMAL HOST ROUTE
+                    document.getElementById("host-btn").style.display = "block";
+                    document.getElementById("host-btn").innerText = `HOST MATCH (CODE: ${randomId})`;
+                    
+                    // Pre-generate the 1-click link to bypass any manual inputs
+                    const baseUri = window.location.href.split('?')[0];
+                    shareableLink = `${baseUri}?room=${randomId}`;
+                }
+            });
+
+            peer.on('connection', (incomingConn) => {
+                if (conn) return; 
+                conn = incomingConn;
+                isHost = true;
+                bindNetworkEvents();
+            });
+
+            peer.on('error', (err) => {
+                setStatus(`Network error: ${err.type}. Restarting...`, true);
+                setTimeout(() => window.location.reload(), 2500);
+            });
+        }
+
+        document.getElementById("host-btn").onclick = () => {
+            setStatus("Link generated! Send it to your friend.");
+            document.getElementById("host-btn").style.display = "none";
+            document.getElementById("room-input").style.display = "none";
+            document.getElementById("join-btn").style.display = "none";
+            document.getElementById("or-divider").style.display = "none";
+            
+            const copyBtn = document.getElementById("copy-btn");
+            copyBtn.style.display = "block";
+            copyBtn.innerText = "COPY INVITE LINK";
+        };
+
+        document.getElementById("copy-btn").onclick = () => {
+            navigator.clipboard.writeText(shareableLink).then(() => {
+                document.getElementById("copy-btn").innerText = "COPIED TO CLIPBOARD!";
+                setStatus("Awaiting connection from Player 2... Keep this page open.");
+            }).catch(() => {
+                alert("Could not auto-copy. Copy this link manually: " + shareableLink);
+            });
+        };
+
+        document.getElementById("join-btn").onclick = () => {
+            const code = document.getElementById("room-input").value.trim();
+            if (!code) return alert("Please enter the host's 4-digit code.");
+            
+            setStatus("Handshaking with host room...");
+            conn = peer.connect('strk-' + code);
+            isHost = false;
+            bindNetworkEvents();
+        };
+
+        function bindNetworkEvents() {
+            conn.on('open', () => {
+                document.getElementById("lobby-container").style.display = "none";
+                document.getElementById("game-wrapper").style.display = "flex";
+                
+                const roleDisplay = document.getElementById("role-value");
+                roleDisplay.innerText = isHost ? "BLUE (BOTTOM)" : "RED (BOTTOM)";
+                roleDisplay.style.color = isHost ? "#00bfff" : "#ff4500";
+                
+                gameActive = true;
+                if (isHost) startTimer();
+                loop();
+            });
+
+            conn.on('data', (data) => {
+                if (isHost) {
+                    p2.targetX = canvas.width - data.mouseX;
+                    p2.targetY = canvas.height - data.mouseY;
+                    if (data.clickDash) triggerDash(p2);
+                } else {
+                    ball.x = data.bx; ball.y = data.by;
+                    p1.x = data.p1x; p1.y = data.p1y; p1.isDashing = data.p1d;
+                    p2.x = data.p2x; p2.y = data.p2y; p2.isDashing = data.p2d;
+                    scores = data.scores;
+                    totalTime = data.time;
+                    goalFlash = data.flash;
+                    
+                    document.getElementById("p-score").innerText = scores.player1;
+                    document.getElementById("a-score").innerText = scores.player2;
+                    updateTimerUI();
+                    
+                    if (data.matchOver) endMatch();
+                }
+            });
+
+            conn.on('close', () => {
+                alert("Opponent dropped from session room!");
+                window.location.reload();
+            });
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                totalTime--;
+                updateTimerUI();
+                if (totalTime <= 0) endMatch();
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            let minutes = Math.floor(totalTime / 60);
+            let seconds = totalTime % 60;
+            document.getElementById("timer-value").innerText = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function endMatch() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            document.getElementById("game-over-screen").style.display = "flex";
+            document.getElementById("final-stats").innerText = `FINAL RESULTS: BLUE ${scores.player1} - ${scores.player2} RED`;
+        }
+
+        function triggerDash(targetPlayer) {
+            if (targetPlayer.isDashing) return;
+            targetPlayer.isDashing = true;
+            targetPlayer.dashTimer = 7; 
+        }
+
+        window.addEventListener("mousemove", (e) => {
+            if (!gameActive) return;
+
+            const rect = canvas.getBoundingClientRect();
+            let rawX = e.clientX - rect.left;
+            let rawY = e.clientY - rect.top;
+
+            if (isHost) {
+                p1.targetX = Math.min(Math.max(rawX, p1.radius), canvas.width - p1.radius);
+                p1.targetY = Math.min(Math.max(rawY, canvas.height / 2 + p1.radius), canvas.height - padY - p1.radius);
+            } else {
+                let boundedX = Math.min(Math.max(rawX, p2.radius), canvas.width - p2.radius);
+                let boundedY = Math.min(Math.max(rawY, canvas.height / 2 + p2.radius), canvas.height - padY - p2.radius);
+                
+                if (conn && conn.open) {
+                    conn.send({ mouseX: boundedX, mouseY: boundedY, clickDash: false });
+                }
+            }
+        });
+
+        window.addEventListener("mousedown", (e) => {
+            if (!gameActive || myCooldown > 0 || e.button !== 0) return;
+
+            if (isHost) {
+                triggerDash(p1);
+                myCooldown = dashCooldownMax;
+            } else {
+                if (conn && conn.open) {
+                    conn.send({ mouseX: p2.targetX, mouseY: p2.targetY, clickDash: true });
+                    myCooldown = dashCooldownMax;
+                }
+            }
+        });
+
+        function resolveCollisions(c1, c2, dynamicKick = false) {
+            let dx = c2.x - c1.x;
+            let dy = c2.y - c1.y;
+            let dist = Math.hypot(dx, dy);
+            let minDist = c1.radius + c2.radius;
+
+            if (dist < minDist) {
+                let angle = Math.atan2(dy, dx);
+                let overlap = minDist - dist;
+
+                c1.x -= Math.cos(angle) * overlap * 0.5;
+                c1.y -= Math.sin(angle) * overlap * 0.5;
+                c2.x += Math.cos(angle) * overlap * 0.5;
+                c2.y += Math.sin(angle) * overlap * 0.5;
+
+                let nx = dx / dist;
+                let ny = dy / dist;
+                let impulse = 2 * (nx * (c1.vx - c2.vx) + ny * (c1.vy - c2.vy)) / (c1.mass + c2.mass);
+
+                c1.vx -= impulse * c2.mass * nx;
+                c1.vy -= impulse * c2.mass * ny;
+                c2.vx += impulse * c1.mass * nx;
+                c2.vy += impulse * c1.mass * ny;
+
+                if (dynamicKick) {
+                    c2.vx += Math.cos(angle) * 14;
+                    c2.vy += Math.sin(angle) * 14;
+                }
+            }
+        }
+
+        function updateHostPhysics() {
+            let prevP1X = p1.x; let prevP1Y = p1.y;
+            if (p1.isDashing) {
+                let angle = Math.atan2(p1.targetY - p1.y, p1.targetX - p1.x);
+                p1.x += Math.cos(angle) * 22; p1.y += Math.sin(angle) * 22;
+                p1.dashTimer--;
+                if (p1.dashTimer <= 0) p1.isDashing = false;
+            } else {
+                p1.x += (p1.targetX - p1.x) * 0.35;
+                p1.y += (p1.targetY - p1.y) * 0.35;
+            }
+            p1.vx = p1.x - prevP1X; p1.vy = p1.y - prevP1Y;
+
+            let prevP2X = p2.x; let prevP2Y = p2.y;
+            if (p2.isDashing) {
+                let angle = Math.atan2(p2.targetY - p2.y, p2.targetX - p2.x);
+                p2.x += Math.cos(angle) * 22; p2.y += Math.sin(angle) * 22;
+                p2.dashTimer--;
+                if (p2.dashTimer <= 0) p2.isDashing = false;
+            } else {
+                p2.x += (p2.targetX - p2.x) * 0.35;
+                p2.y += (p2.targetY - p2.y) * 0.35;
+            }
+            p2.vx = p2.x - prevP2X; p2.vy = p2.y - prevP2Y;
+
+            ball.vx *= friction; ball.vy *= friction;
+            ball.x += ball.vx; ball.y += ball.vy;
+
+            resolveCollisions(p1, ball, p1.isDashing);
+            resolveCollisions(p2, ball, p2.isDashing);
+            resolveCollisions(p1, p2);
+
+            if (ball.x - ball.radius < 0) { ball.x = ball.radius; ball.vx *= -0.8; }
+            if (ball.x + ball.radius > canvas.width) { ball.x = canvas.width - ball.radius; ball.vx *= -0.8; }
+
+            if (ball.y - ball.radius < padY) {
+                if (ball.x > goalX && ball.x < goalX + goalWidth) {
+                    scores.player2++; goalFlash = 10; resetPositions();
+                } else { ball.y = padY + ball.radius; ball.vy *= -0.8; }
+            }
+            if (ball.y + ball.radius > canvas.height - padY) {
+                if (ball.x > goalX && ball.x < goalX + goalWidth) {
+                    scores.player1++; goalFlash = 10; resetPositions();
+                } else { ball.y = canvas.height - padY - ball.radius; ball.vy *= -0.8; }
+            }
+
+            document.getElementById("p-score").innerText = scores.player1;
+            document.getElementById("a-score").innerText = scores.player2;
+            if (goalFlash > 0) goalFlash--;
+        }
+
+        function resetPositions() {
+            ball.x = 230; ball.y = 340; ball.vx = 0; ball.vy = 0;
+        }
+
+        function renderScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            
+            if (!isHost) {
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(Math.PI);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+            }
+
+            ctx.fillStyle = "#1b7a3e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#156331";
+            for(let i = padY; i < canvas.height - padY; i += 60) {
+                if((Math.floor((i - padY)/60)) % 2 === 0) ctx.fillRect(0, i, canvas.width, 60);
+            }
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 4;
+            ctx.strokeRect(0, padY, canvas.width, canvas.height - (padY * 2));
+            ctx.beginPath(); ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(canvas.width / 2, canvas.height / 2, 70, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(goalX, padY - goalHeight, goalWidth, goalHeight);
+            ctx.fillRect(goalX, canvas.height - padY, goalWidth, goalHeight);
+            ctx.strokeStyle = "#ff4500"; ctx.strokeRect(goalX, padY - goalHeight, goalWidth, goalHeight);
+            ctx.strokeStyle = "#00bfff"; ctx.strokeRect(goalX, canvas.height - padY, goalWidth, goalHeight);
+
+            drawEntity(p1, p1.isDashing ? "#ffff00" : "#ffffff");
+            drawEntity(p2, p2.isDashing ? "#ffff00" : "#ffffff");
+            drawEntity(ball, "#222222");
+
+            if (goalFlash > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${goalFlash / 10})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.restore();
+        }
+
+        function drawEntity(obj, outlineColor = "#ffffff") {
+            ctx.beginPath(); ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+            ctx.fillStyle = obj.color; ctx.fill();
+            ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; stroke();
+        }
+
+        function loop() {
+            if (!gameActive) return;
+
+            if (isHost) {
+                updateHostPhysics();
+                conn.send({
+                    bx: ball.x, by: ball.y,
+                    p1x: p1.x, p1y: p1.y, p1d: p1.isDashing,
+                    p2x: p2.x, p2y: p2.y, p2d: p2.isDashing,
+                    scores: scores, time: totalTime, flash: goalFlash,
+                    matchOver: (totalTime <= 0)
+                });
+                if (totalTime <= 0) endMatch();
+            }
+
+            if (myCooldown > 0) myCooldown--;
+
+            renderScene();
+            requestAnimationFrame(loop);
+        }
+
+        initNetwork();
+    </script>
+</body>
+</html>
